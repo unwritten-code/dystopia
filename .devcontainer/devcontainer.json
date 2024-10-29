@@ -1,0 +1,7 @@
+{
+    "image": "mcr.microsoft.com/devcontainers/rust:latest",
+    // "features": {
+    //     "ghcr.io/devcontainers-contrib/features/typescript:2": {}
+    // },        
+    "postCreateCommand": "cargo install cargo-shuttle"
+}
