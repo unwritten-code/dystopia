@@ -1,10 +1,11 @@
-# automatic-lamp
+## backend
 
-Follow instructions for shuttle.dev != shuttle.rs
+* Following instructions [here](https://docs.shuttle.dev/getting-started/installation)
+* (shuttle.dev != shuttle.rs)
 
-https://docs.shuttle.dev/getting-started/installation
-
-> shuttle login
-> shuttle init
-> cd /backend/
-> shuttle run
+```
+shuttle login
+shuttle init
+cd /backend
+shuttle run
+```
