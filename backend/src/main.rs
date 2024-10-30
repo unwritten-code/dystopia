@@ -1,10 +1,12 @@
-use axum::Router;
-use tower_http::services::ServeDir;
+use axum::{routing::get, Router};
+
+async fn hello_world() -> &'static str {
+    "Hello, world!"
+}
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-    // ServeDir falls back to serve index.html when requesting a directory
-    let router = Router::new().nest_service("/", ServeDir::new("assets"));
+    let router = Router::new().route("/", get(hello_world));
 
     Ok(router.into())
 }
