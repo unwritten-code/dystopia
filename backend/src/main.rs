@@ -1,13 +1,27 @@
-use axum::{routing::get, Router};
-use axum::extract::Path; // path extraction
+use axum::{
+    extract::Path,
+    response::IntoResponse,
+    routing::get,
+    Router,
+};
 
-async fn extract_url(Path(twid): Path<String>) -> String {
-    format!("Hello, world name: {twid}! umya-spreadsheet compiled!")
+use umya_spreadsheet::*;
+
+async fn extract_url(Path(value): Path<u32>) -> impl IntoResponse {
+    format!("Hello, world name: {value}! umya-spreadsheet compiled!")
 }
+
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-    let router = Router::new().route("/:twid", get(extract_url));
+    let router = Router::new().route("/:value", get(extract_url));
+    
+    // setup spreadsheet
+    let mut book = new_file();
+    let _ = book.new_sheet("SheetPhillip");
+
+    // temp spreadsheet storage location
+    // let mut temp_file
 
     Ok(router.into())
 }
