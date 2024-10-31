@@ -10,8 +10,10 @@ use axum::{
 use umya_spreadsheet::*;
 use bytes::Bytes;
 use writer::xlsx;
-
 use std::io::Cursor;
+
+// used to create static files / webpage
+use tower_http::services::ServeDir;
 
 async fn excel_generator(Path(val): Path<String>) -> impl IntoResponse {    
     // setup spreadsheet
@@ -48,7 +50,13 @@ async fn excel_generator(Path(val): Path<String>) -> impl IntoResponse {
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-    let router = Router::new().route("/:val", get(excel_generator));
+      // Serve static files from the "assets" directory under the "/static" prefix
+      let static_files = Router::new().nest_service("/", ServeDir::new("assets"));
     
+    
+    let dynamic_route = Router::new().route("/api/:val", get(excel_generator));
+
+    let router = static_files.merge(dynamic_route);
+
     Ok(router.into())
 }
