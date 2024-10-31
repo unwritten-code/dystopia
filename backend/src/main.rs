@@ -7,24 +7,24 @@ use axum::{
     Router,
 };
 
-// use umya_spreadsheet::*;
-
+use umya_spreadsheet::*;
 use bytes::Bytes;
+use writer::xlsx;
 
 async fn excel_generator(Path(val): Path<String>) -> impl IntoResponse {    
     // setup spreadsheet
-    // let mut book = new_file();
-    // let _ = book.new_sheet("Unwritten");
+    let mut book = new_file();
+    let _ = book.new_sheet("Unwritten2");
 
     // insert parse `val` into spreadsheet
-    // book.get_sheet_by_name_mut("Unwritten")
-    //     .unwrap()
-    //     .get_cell_mut("B2") // cell reference
-    //     .set_value(val.clone());
+    book.get_sheet_by_name_mut("Unwritten2")
+        .unwrap()
+        .get_cell_mut("B2") // cell reference
+        .set_value(val.clone());
 
-    let file_data = Bytes::from_static(include_bytes!(".././phillip-sucks.xlsx"));
-
-
+    // save
+    let _ = xlsx::write(&book, "./../data.xlsx");
+    let file_data = Bytes::from_static(include_bytes!(".././../data.xlsx"));
     
     // setup headers for a downloadable file
      let mut headers = axum::http::HeaderMap::new();
