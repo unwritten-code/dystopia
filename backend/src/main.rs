@@ -11,6 +11,8 @@ use umya_spreadsheet::*;
 use bytes::Bytes;
 use writer::xlsx;
 
+use std::io::Cursor;
+
 async fn excel_generator(Path(val): Path<String>) -> impl IntoResponse {    
     // setup spreadsheet
     let mut book = new_file();
@@ -22,10 +24,14 @@ async fn excel_generator(Path(val): Path<String>) -> impl IntoResponse {
         .get_cell_mut("B2") // cell reference
         .set_value(val.clone());
 
-    // save
-    let _ = xlsx::write(&book, "./../data.xlsx");
-    let file_data = Bytes::from_static(include_bytes!(".././../data.xlsx"));
-    
+
+    // Save Excel to an in-memory buffer
+    let mut buffer = Cursor::new(Vec::new());
+    let _ = xlsx::write_writer(&book, &mut buffer).expect("Failed to write Excel to buffer");
+
+    // Read data from the buffer and prepare it as bytes
+    let file_data = Bytes::from(buffer.into_inner());
+
     // setup headers for a downloadable file
      let mut headers = axum::http::HeaderMap::new();
      headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
@@ -41,7 +47,3 @@ async fn main() -> shuttle_axum::ShuttleAxum {
     
     Ok(router.into())
 }
-
-// Create a temporary path
-    // let path = std::path::Path::new("./model3.xslx");
-    // let _ = writer::xlsx::write(&book, path);
