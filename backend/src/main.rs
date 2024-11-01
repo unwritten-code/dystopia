@@ -36,25 +36,17 @@ async fn json2excel(Json(json): Json<Params>) -> impl IntoResponse {
     let _ = book.new_sheet(sheet_name);
 
     // insert json into spreadsheet
-    book.get_sheet_by_name_mut(sheet_name)
-        .unwrap()
-        .get_cell_mut("B1")
-        .set_value(json.company_name.clone());
+    if let Some(sheet) = book.get_sheet_by_name_mut(sheet_name) {
+        sheet.get_cell_mut("A1").set_value("Company Name");
+        sheet.get_cell_mut("A2").set_value("Primary Sector");
+        sheet.get_cell_mut("A3").set_value("Primary Country");
+        sheet.get_cell_mut("A4").set_value("Total Revenue");
+        sheet.get_cell_mut("B1").set_value(json.company_name.clone());
+        sheet.get_cell_mut("B2").set_value(json.primary_sector.clone());
+        sheet.get_cell_mut("B3").set_value(json.primary_country.clone());
+        sheet.get_cell_mut("B4").set_value(json.total_revenue.clone());
+    }
 
-    book.get_sheet_by_name_mut(sheet_name)
-        .unwrap()
-        .get_cell_mut("B2")
-        .set_value(json.primary_sector.clone());
-
-    book.get_sheet_by_name_mut(sheet_name)
-        .unwrap()
-        .get_cell_mut("B3")
-        .set_value(json.primary_country.clone());
-
-    book.get_sheet_by_name_mut(sheet_name)
-        .unwrap()
-        .get_cell_mut("B4")
-        .set_value(json.total_revenue.clone());
 
     // style
     let style =  book.get_sheet_by_name_mut(sheet_name).unwrap().get_style_mut("A2");
