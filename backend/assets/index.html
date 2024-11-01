@@ -7,7 +7,10 @@
     <body>
         <main>
             <h2>
-                curl  http://127.0.0.1:8000/api/   -H "Content-Type: application/json"   -d '{"test": "somedata"}'
+                curl http://127.0.0.1:8000/api/ \
+                -H "Content-Type: application/json" \
+                -d '{"key": "a key", "value": "some data"}' \
+                -o model.xslx
             </h2>
             <h2>where the donkey work gets done</h2>
         </main>

@@ -1,5 +1,5 @@
 use axum::{
-    body::Body, extract::Path, http::{header, HeaderValue, StatusCode}, response::IntoResponse, routing::post, Json, Router
+    body::Body, http::{header, HeaderValue, StatusCode}, response::IntoResponse, routing::post, Json, Router
 };
 
 use serde::{Deserialize, Serialize};
@@ -14,15 +14,14 @@ use tower_http::services::ServeDir;
 #[derive(Serialize, Deserialize)]
 struct Params {
     key: String, 
-    calculate: String
+    value: String
 }
 
-async fn xx(Json(json): Json<Params>) -> String {
-    format!("Hello {0} {1}", json.key, json.calculate)
+async fn _hello_word(Json(json): Json<Params>) -> String {
+    format!("POST returns key: {0}, value: {1}", json.key, json.value)
 }
 
-async fn _excel(Path(val): Path<String>) -> impl IntoResponse {    
-    // TASK 1 create a simple post
+async fn json2excel(Json(json): Json<Params>) -> impl IntoResponse {    
     // TASK 2 send it a real json
     // TASK 3 spit that out in excel
     // TASK 4 create a post in nextJS
@@ -34,12 +33,18 @@ async fn _excel(Path(val): Path<String>) -> impl IntoResponse {
     let _ = book.remove_sheet(0); // remove sheet1
     let _ = book.new_sheet(sheet_name);
 
-    // insert parse `val` into spreadsheet
+    // insert json into spreadsheet
     book.get_sheet_by_name_mut(sheet_name)
         .unwrap()
-        .get_cell_mut("B2") // cell reference
-        .set_value(val.clone());
+        .get_cell_mut("B2")
+        .set_value(json.key.clone());
 
+        book.get_sheet_by_name_mut(sheet_name)
+        .unwrap()
+        .get_cell_mut("B3")
+        .set_value(json.value.clone());
+
+    // style
     let style =  book.get_sheet_by_name_mut(sheet_name).unwrap().get_style_mut("A2");
     style.set_background_color(Color::COLOR_BLUE); // fill color
 
@@ -61,11 +66,11 @@ async fn _excel(Path(val): Path<String>) -> impl IntoResponse {
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-    // Serve static files from the "assets" directory under the "/static" prefix
+    // create a static page for documentation
     let static_files = Router::new().nest_service("/", ServeDir::new("assets"));
     
-    
-    let dynamic_route = Router::new().route("/api/", post(xx));
+    // routes
+    let dynamic_route = Router::new().route("/api/", post(json2excel));
     let router = static_files.merge(dynamic_route);
 
     Ok(router.into())
