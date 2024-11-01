@@ -1,12 +1,8 @@
 use axum::{
-    extract::Path,
-    http::{header, HeaderValue, StatusCode},
-    response::IntoResponse,
-    routing::get,
-    body::Body,
-    Router,
+    body::Body, extract::Path, http::{header, HeaderValue, StatusCode}, response::IntoResponse, routing::post, Json, Router
 };
 
+use serde::{Deserialize, Serialize};
 use umya_spreadsheet::*;
 use bytes::Bytes;
 use writer::xlsx;
@@ -15,7 +11,22 @@ use std::io::Cursor;
 // used to create static files / webpage
 use tower_http::services::ServeDir;
 
-async fn excel_generator(Path(val): Path<String>) -> impl IntoResponse {    
+#[derive(Serialize, Deserialize)]
+struct Params {
+    key: String, 
+    calculate: String
+}
+
+async fn xx(Json(json): Json<Params>) -> String {
+    format!("Hello {0} {1}", json.key, json.calculate)
+}
+
+async fn _excel(Path(val): Path<String>) -> impl IntoResponse {    
+    // TASK 1 create a simple post
+    // TASK 2 send it a real json
+    // TASK 3 spit that out in excel
+    // TASK 4 create a post in nextJS
+
     // setup spreadsheet
     let mut book = new_file();
     let sheet_name = "Unwritten";
@@ -50,12 +61,11 @@ async fn excel_generator(Path(val): Path<String>) -> impl IntoResponse {
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-      // Serve static files from the "assets" directory under the "/static" prefix
-      let static_files = Router::new().nest_service("/", ServeDir::new("assets"));
+    // Serve static files from the "assets" directory under the "/static" prefix
+    let static_files = Router::new().nest_service("/", ServeDir::new("assets"));
     
     
-    let dynamic_route = Router::new().route("/api/:val", get(excel_generator));
-
+    let dynamic_route = Router::new().route("/api/", post(xx));
     let router = static_files.merge(dynamic_route);
 
     Ok(router.into())
