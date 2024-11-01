@@ -13,12 +13,14 @@ use tower_http::services::ServeDir;
 
 #[derive(Serialize, Deserialize)]
 struct Params {
-    key: String, 
-    value: String
+    company_name: String,
+    primary_sector: String,
+    primary_country: String,
+    total_revenue: String,
 }
 
 async fn _hello_word(Json(json): Json<Params>) -> String {
-    format!("POST returns key: {0}, value: {1}", json.key, json.value)
+    format!("POST returns key: {0}, value: {1}", json.company_name, json.total_revenue)
 }
 
 async fn json2excel(Json(json): Json<Params>) -> impl IntoResponse {    
@@ -36,13 +38,23 @@ async fn json2excel(Json(json): Json<Params>) -> impl IntoResponse {
     // insert json into spreadsheet
     book.get_sheet_by_name_mut(sheet_name)
         .unwrap()
-        .get_cell_mut("B2")
-        .set_value(json.key.clone());
+        .get_cell_mut("B1")
+        .set_value(json.company_name.clone());
 
-        book.get_sheet_by_name_mut(sheet_name)
+    book.get_sheet_by_name_mut(sheet_name)
+        .unwrap()
+        .get_cell_mut("B2")
+        .set_value(json.primary_sector.clone());
+
+    book.get_sheet_by_name_mut(sheet_name)
         .unwrap()
         .get_cell_mut("B3")
-        .set_value(json.value.clone());
+        .set_value(json.primary_country.clone());
+
+    book.get_sheet_by_name_mut(sheet_name)
+        .unwrap()
+        .get_cell_mut("B4")
+        .set_value(json.total_revenue.clone());
 
     // style
     let style =  book.get_sheet_by_name_mut(sheet_name).unwrap().get_style_mut("A2");
