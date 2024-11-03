@@ -1,6 +1,9 @@
 use axum::{
-    body::Body, http::{header, HeaderValue, StatusCode}, response::IntoResponse, routing::post, Json, Router
+    body::Body, http::StatusCode, response::IntoResponse, routing::post, Error, Json, Router
 };
+
+//https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
+use mongodb::{bson::doc, Client, Collection};
 
 use serde::{Deserialize, Serialize};
 use umya_spreadsheet::*;
@@ -11,12 +14,6 @@ use std::io::Cursor;
 // used to create static files / webpage
 use tower_http::services::ServeDir;
 
-//https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
-use mongodb::{
-    bson::doc,
-    Client,
-    Collection
-};
 
 #[derive(Serialize, Deserialize)]
 struct PostParams {
@@ -27,7 +24,7 @@ struct PostParams {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct Nature{
+struct NatureBySector{
     nature_risk: String,
     utics: String,
     utics_title: String,
@@ -73,26 +70,42 @@ async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
     let file_data = Bytes::from(buffer.into_inner());
 
      // return file_data
-     (StatusCode::OK, headers, Body::from(file_data))
+     (StatusCode::OK, Body::from(file_data))
 }
 
 
 // connect to mongodb
 #[tokio::main]
-async fn load_spectacle() {
+async fn load_spectacle() -> mongodb::error::Result<()> {
     let uri = "";
-    let client = Client::with_uri_str(uri).await?;
-}
 
+    let client =Client::with_uri_str(uri).await?;
+
+    let my_coll: Collection<NatureBySector> = client
+        .database("delphi-dev ")
+        .collection("nature_by_sector");
+    
+    let result = my_coll.find_one(doc! { "nature_risk": "water_availability" }).await?;
+    println!("{:#?}", result);
+    Ok(())
+}
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
+    // Use spawn to run 'load_spectacle' as background task
+    // tokio::spawn(async {
+    //     if let Err(e) = load_spectacle() {
+    //         eprintln!("Failed to load spectacle: {:?}", e);
+    //     }
+    // });
+
     // create a static page for documentation
     let static_files = Router::new().nest_service("/", ServeDir::new("assets"));
     
     // routes
     let dynamic_route = Router::new().route("/api/", post(json2excel));
     let router = static_files.merge(dynamic_route);
+
 
     Ok(router.into())
 }
