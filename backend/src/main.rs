@@ -11,45 +11,58 @@ use std::io::Cursor;
 // used to create static files / webpage
 use tower_http::services::ServeDir;
 
+//https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
+use mongodb::{
+    bson::doc,
+    Client,
+    Collection
+};
+
 #[derive(Serialize, Deserialize)]
-struct Params {
+struct PostParams {
     company_name: String,
     primary_sector: String,
     primary_country: String,
     total_revenue: String,
 }
 
-async fn _hello_word(Json(json): Json<Params>) -> String {
+#[derive(Serialize, Deserialize, Debug)]
+struct Nature{
+    nature_risk: String,
+    utics: String,
+    utics_title: String,
+    value: String,
+    materiality: String
+    
+}
+
+async fn _hello_word(Json(json): Json<PostParams>) -> String {
     format!("POST returns key: {0}, value: {1}", json.company_name, json.total_revenue)
 }
 
-async fn json2excel(Json(json): Json<Params>) -> impl IntoResponse {    
-    // TASK 2 send it a real json
-    // TASK 3 spit that out in excel
-    // TASK 4 create a post in nextJS
+
+async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
+    const SHEET_NAME: &str = "Unwritten";
 
     // setup spreadsheet
     let mut book = new_file();
-    let sheet_name = "Unwritten";
-
     let _ = book.remove_sheet(0); // remove sheet1
-    let _ = book.new_sheet(sheet_name);
+    let _ = book.new_sheet(SHEET_NAME);
 
-    // insert json into spreadsheet
-    if let Some(sheet) = book.get_sheet_by_name_mut(sheet_name) {
+    if let Some(sheet) = book.get_sheet_by_name_mut(SHEET_NAME) {
         sheet.get_cell_mut("A1").set_value("Company Name");
         sheet.get_cell_mut("A2").set_value("Primary Sector");
         sheet.get_cell_mut("A3").set_value("Primary Country");
         sheet.get_cell_mut("A4").set_value("Total Revenue");
+        // insert json into spreadsheet
         sheet.get_cell_mut("B1").set_value(json.company_name.clone());
         sheet.get_cell_mut("B2").set_value(json.primary_sector.clone());
         sheet.get_cell_mut("B3").set_value(json.primary_country.clone());
         sheet.get_cell_mut("B4").set_value(json.total_revenue.clone());
     }
 
-
-    // style
-    let style =  book.get_sheet_by_name_mut(sheet_name).unwrap().get_style_mut("A2");
+    // setup style
+    let style =  book.get_sheet_by_name_mut(SHEET_NAME).unwrap().get_style_mut("A2");
     style.set_background_color(Color::COLOR_BLUE); // fill color
 
     // save excel to an in-memory buffer
@@ -59,12 +72,16 @@ async fn json2excel(Json(json): Json<Params>) -> impl IntoResponse {
     // read data from the buffer and prepare it as bytes
     let file_data = Bytes::from(buffer.into_inner());
 
-    // setup headers for a downloadable file
-     let mut headers = axum::http::HeaderMap::new();
-     headers.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-     headers.insert(header::CONTENT_DISPOSITION, HeaderValue::from_str("attachment; filename=\"model.xlsx\"").unwrap());
-
+     // return file_data
      (StatusCode::OK, headers, Body::from(file_data))
+}
+
+
+// connect to mongodb
+#[tokio::main]
+async fn load_spectacle() {
+    let uri = "";
+    let client = Client::with_uri_str(uri).await?;
 }
 
 
