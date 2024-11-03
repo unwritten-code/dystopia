@@ -1,5 +1,5 @@
 use axum::{
-    body::Body, http::StatusCode, response::IntoResponse, routing::post, Error, Json, Router
+    body::Body, http::StatusCode, response::IntoResponse, routing::post, Json, Router
 };
 
 //https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
@@ -76,7 +76,7 @@ async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
 
 // connect to mongodb
 #[tokio::main]
-async fn load_spectacle() -> mongodb::error::Result<()> {
+async fn _load_spectacle() -> mongodb::error::Result<()> {
     let uri = "";
 
     let client =Client::with_uri_str(uri).await?;
