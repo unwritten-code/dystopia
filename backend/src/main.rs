@@ -76,11 +76,11 @@ async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
 
 
 
-async fn load_spectacle() -> mongodb::error::Result<Option<NatureBySector>> {
+async fn _load_spectacle() -> mongodb::error::Result<Option<NatureBySector>> {
     // load .env file into the environment
     dotenv().ok();
 
-    let uri = env::var("MONGODB_URI").expect("Environment variable MY_ENV_VAR not set");
+    let uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
 
     let client =Client::with_uri_str(uri).await?;
 
