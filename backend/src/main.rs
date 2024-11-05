@@ -3,7 +3,8 @@ use axum::{
 };
 
 //https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
-use mongodb::{bson::doc, Client, Collection};
+use mongodb::{bson::doc, Client, Collection, Cursor as MongoCursor}; // Alias mongodb::Cursor to MongoCursor
+
 
 use serde::{Deserialize, Serialize};
 use umya_spreadsheet::*;
@@ -31,8 +32,20 @@ struct NatureBySector{
     utics: String,
     value: String,
     materiality: String
-    
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+struct UParams{
+    model: String,
+    scenario: String,
+    utics: String,
+    iso3: String,
+    year: i32,
+    metric: String,
+    unit: String,
+    value: u32 
+}
+
 
 async fn _hello_word(Json(json): Json<PostParams>) -> String {
     format!("POST returns key: {0}, value: {1}", json.company_name, json.total_revenue)
@@ -75,8 +88,7 @@ async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
 }
 
 
-
-async fn _load_spectacle() -> mongodb::error::Result<Option<NatureBySector>> {
+async fn load_uparams(query_country: Vec<&str>) -> mongodb::error::Result<MongoCursor<UParams>> {
     // load .env file into the environment
     dotenv().ok();
 
@@ -84,21 +96,23 @@ async fn _load_spectacle() -> mongodb::error::Result<Option<NatureBySector>> {
 
     let client =Client::with_uri_str(uri).await?;
 
-    let my_coll: Collection<NatureBySector> = client
+    let my_coll: Collection<UParams> = client
         .database("delphi-dev")
-        .collection("nature_by_sector");
+        .collection("uparams");
     
-    let result = my_coll.find_one(doc! { "nature_risk": "water_availability" }).await?;
+    let result: MongoCursor<UParams> = my_coll.find(doc! { "iso3": { "$in": query_country } }).await?;
+    
     Ok(result)
 }
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
 
-    // mongodb test
-    // let data = load_spectacle().await;
-    // print!("{:?}", data);
+    let country = vec!["GBR", "FRA"];
 
+    // mongodb test
+    let data: Result<MongoCursor<UParams>, mongodb::error::Error> = load_uparams(country).await;
+    print!("{:?}", data);
 
     // create a static page for documentation
     let static_files = Router::new().nest_service("/", ServeDir::new("assets"));
@@ -106,7 +120,6 @@ async fn main() -> shuttle_axum::ShuttleAxum {
     // routes
     let dynamic_route = Router::new().route("/api/", post(json2excel));
     let router = static_files.merge(dynamic_route);
-
 
     Ok(router.into())
 }
