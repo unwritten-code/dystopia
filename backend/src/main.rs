@@ -1,5 +1,5 @@
 use axum::{
-    body::Body, http::StatusCode, response::IntoResponse, routing::post, Json, Router
+    body::Body, http::StatusCode, response::IntoResponse, routing::post, Error, Json, Router
 };
 
 //https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
@@ -36,14 +36,12 @@ struct NatureBySector{
 
 #[derive(Serialize, Deserialize, Debug)]
 struct UParams{
-    model: String,
+    iso3: String,
     scenario: String,
     utics: String,
-    iso3: String,
     year: i32,
-    metric: String,
-    unit: String,
-    value: u32 
+    value: f64,
+    delphi_financial_var: String,
 }
 
 
@@ -88,30 +86,38 @@ async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
 }
 
 
-async fn load_uparams(query_country: Vec<&str>) -> mongodb::error::Result<MongoCursor<UParams>> {
+async fn load_uparams() -> mongodb::error::Result<MongoCursor<UParams>>  {
     // load .env file into the environment
     dotenv().ok();
 
-    let uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
+    let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
 
-    let client =Client::with_uri_str(uri).await?;
+    let mongo_client =Client::with_uri_str(mongo_uri).await?;
 
-    let my_coll: Collection<UParams> = client
+    // select collection from database
+    let uparams: Collection<UParams> = mongo_client
         .database("delphi-dev")
         .collection("uparams");
     
-    let result: MongoCursor<UParams> = my_coll.find(doc! { "iso3": { "$in": query_country } }).await?;
+    // query the collection
+    let mut cursor: MongoCursor<UParams> = uparams.find(doc! { "iso3": "GBR" }).await?;
+
+    while cursor.advance().await? {
+        let cat = cursor.deserialize_current()?;
+        println!("iso3: {}", cat.iso3)
+
+    };
     
-    Ok(result)
+    return Ok(cursor);
 }
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
 
-    let country = vec!["GBR", "FRA"];
+    let _country = vec!["GBR", "FRA"];
 
     // mongodb test
-    let data: Result<MongoCursor<UParams>, mongodb::error::Error> = load_uparams(country).await;
+    let data = load_uparams().await;
     print!("{:?}", data);
 
     // create a static page for documentation
