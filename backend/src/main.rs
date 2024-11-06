@@ -3,7 +3,7 @@ use axum::{
 };
 
 //https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
-use mongodb::{bson::doc, Client, Collection, Cursor as MongoCursor}; // Alias mongodb::Cursor to MongoCursor
+use mongodb::{bson::{doc, Document}, Client, Collection, Cursor as MongoCursor}; // Alias mongodb::Cursor to MongoCursor
 
 
 use serde::{Deserialize, Serialize};
@@ -86,42 +86,40 @@ async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
 }
 
 
-async fn load_uparams() -> mongodb::error::Result<MongoCursor<UParams>>  {
+async fn load_uparams(mongo_query: Document) -> mongodb::error::Result<Vec<String>>  {
     // load .env file into the environment
     dotenv().ok();
 
+    // connection
     let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
-
     let mongo_client =Client::with_uri_str(mongo_uri).await?;
+
+    // store output in an array
+    let mut all_docs = Vec::new();
 
     // select collection from database
     let uparams: Collection<UParams> = mongo_client
         .database("delphi-dev")
         .collection("uparams");
-    
-    // query the collection
-    let mut cursor: MongoCursor<UParams> = uparams.find(doc! { "iso3": "GBR" }).await?;
 
-    // store strings in an array
-    let mut all_docs = Vec::new();
+    let mut cursor: MongoCursor<UParams> = uparams.find(mongo_query).limit(3).await?;
+
 
     while cursor.advance().await? {
         let doc = cursor.deserialize_current()?;
-        all_docs.push(doc.utics);
+        all_docs.push(doc.iso3);
     };
-    
-    println!("utics: {:?}", all_docs);
 
-    return Ok(cursor);
+    Ok(all_docs)
 }
 
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-
-    let _country = vec!["GBR", "FRA"];
-
-    // mongodb test
-    let data = load_uparams().await;
+    // mongodb
+    let mongo_query: Document = doc! {
+        "iso3": { "$in": ["GBR", "IRL"] }
+    };
+    let data = load_uparams(mongo_query).await;
     print!("{:?}", data);
 
     // create a static page for documentation
