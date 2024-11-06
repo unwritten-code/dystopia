@@ -1,5 +1,5 @@
 use axum::{
-    body::Body, http::StatusCode, response::IntoResponse, routing::post, Error, Json, Router
+    body::Body, http::StatusCode, response::IntoResponse, routing::post, Json, Router
 };
 
 //https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
@@ -102,12 +102,16 @@ async fn load_uparams() -> mongodb::error::Result<MongoCursor<UParams>>  {
     // query the collection
     let mut cursor: MongoCursor<UParams> = uparams.find(doc! { "iso3": "GBR" }).await?;
 
-    while cursor.advance().await? {
-        let cat = cursor.deserialize_current()?;
-        println!("iso3: {}", cat.iso3)
+    // store strings in an array
+    let mut all_docs = Vec::new();
 
+    while cursor.advance().await? {
+        let doc = cursor.deserialize_current()?;
+        all_docs.push(doc.utics);
     };
     
+    println!("utics: {:?}", all_docs);
+
     return Ok(cursor);
 }
 
