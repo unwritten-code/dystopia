@@ -1,6 +1,6 @@
-# Backend
+# Backend 
 
-## Shuttle Deployment and Setup
+## Shuttle 🚀 Deployment and Setup
 Please use shuttle.dev [documentation](https://docs.shuttle.dev/getting-started/installation) not older shuttle.rs documentation.
 
 ### Initial Setup
@@ -19,7 +19,7 @@ When prompted, choose the option:
 *  `A Hello World app in a supported framework`
 * Select `Axum` for the framework
 
-This will set up the project with teh necessary files and dependencies.
+This will set up the project with the necessary files and dependencies.
 
 ## Local Development
 To run your backend project locally, follow these steps:
