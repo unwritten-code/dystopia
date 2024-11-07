@@ -10,7 +10,7 @@ Before starting, log in to Shuttle using
 shuttle login
 ```
 
-2. **Create a New Project:
+2. **Create a New Project:**
 Once logged in, create a new Shuttle project by running
 ```bash
 shuttle init
