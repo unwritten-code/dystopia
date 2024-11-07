@@ -22,7 +22,7 @@ struct ApiResponse<T> {
 
 async fn load_uparams(
         mongo_client: Client,
-        mongo_query: Document,
+        uparams_query: Document,
     ) -> mongodb::error::Result<Vec<String>>  {
   
     // store output in an array
@@ -33,7 +33,7 @@ async fn load_uparams(
         .database("delphi-dev")
         .collection("uparams");
 
-    let mut cursor: MongoCursor<UParams> = uparams.find(mongo_query).limit(3).await?;
+    let mut cursor: MongoCursor<UParams> = uparams.find(uparams_query).limit(3).await?;
 
     while cursor.advance().await? {
         let doc = cursor.deserialize_current()?;
@@ -48,16 +48,18 @@ async fn my_get() -> impl IntoResponse {
     // Load .env file into the environment
     dotenv().ok();
     
-    // MongoDB connection
+    // Reusable connection to MongoDB
     let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
     let mongo_client = Client::with_uri_str(&mongo_uri).await.expect("Failed to initialize MongoDB client");
+
     
-    let mongo_query: Document = doc! {
-      "iso3": { "$in": ["GBR", "AUS"] }
-    };
-    
+    let uparams_query: Document = doc! {
+        "iso3": { "$in": ["GBR", "AUS"] }
+      };
+
+
      // Attempt to perform the query and handle potential errors
-     match load_uparams(mongo_client, mongo_query).await {
+     match load_uparams(mongo_client, uparams_query).await {
         Ok(response) => {
             // If successful, wrap the data in ApiResponse
             Json(ApiResponse {
@@ -84,7 +86,7 @@ async fn my_get() -> impl IntoResponse {
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
     
-    // make a post that does the mongodb thing
+    // mongoDB
     let router = Router::new().route("/mdb/", get(my_get));
     
     Ok(router.into())
