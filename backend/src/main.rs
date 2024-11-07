@@ -1,71 +1,91 @@
-use std::io::Cursor;
+use axum::{response::IntoResponse, routing::get, Router, Json};
+use shuttle_axum::ShuttleAxum;
+use mongodb::{bson::{doc, Document}, Client, Collection, Cursor as MongoCursor}; // Alias mongodb::Cursor to MongoCursor
 
-use axum::{
-    body::Body,
-    http::StatusCode,
-    Json,
-    response::IntoResponse,
-    routing::post,
-    Router,
-};
+use std::env;
+use dotenvy::dotenv;
+use serde::Serialize;
 
-use umya_spreadsheet::*;
-use bytes::Bytes;
-use writer::xlsx;
-
-// add models
-mod models {
-    pub mod user_inputs;
+mod models{
+    pub mod spectacle;
 }
 
-use models::user_inputs::Fundamentals;
+use models::spectacle::UParams;
+
+// End 
+#[derive(Serialize)]
+struct ApiResponse<T> {
+    success: bool,
+    data: Option<T>,
+    message: Option<String>,
+}
+
+async fn load_uparams(
+        mongo_client: Client,
+        mongo_query: Document,
+    ) -> mongodb::error::Result<Vec<String>>  {
+  
+    // store output in an array
+    let mut all_docs = Vec::new();
+
+    // select uparams collection from database
+    let uparams: Collection<UParams> = mongo_client
+        .database("delphi-dev")
+        .collection("uparams");
+
+    let mut cursor: MongoCursor<UParams> = uparams.find(mongo_query).limit(3).await?;
+
+    while cursor.advance().await? {
+        let doc = cursor.deserialize_current()?;
+        all_docs.push(doc.iso3);
+    };
+
+    Ok(all_docs)
+}
 
 
-async fn spreadsheet_writer(Json(json): Json<Fundamentals>) -> impl IntoResponse {
-    const SHEET_NAME: &str = "Unwritten";
-
-    // setup spreadsheet
-    let mut book = new_file();
-    let _ = book.remove_sheet(0); // remove sheet1
-    let _ = book.new_sheet(SHEET_NAME);
-
-    if let Some(sheet) = book.get_sheet_by_name_mut(SHEET_NAME) {
-        sheet.get_cell_mut("A1").set_value("Company Name");
-        sheet.get_cell_mut("A2").set_value("Primary Sector");
-        sheet.get_cell_mut("A3").set_value("Primary Country");
-        sheet.get_cell_mut("A4").set_value("Total Revenue");
-        // insert json into spreadsheet
-        sheet.get_cell_mut("B1").set_value(json.company_name.clone());
-        sheet.get_cell_mut("B2").set_value(json.primary_sector.clone());
-        sheet.get_cell_mut("B3").set_value(json.primary_country.clone());
-        sheet.get_cell_mut("B4").set_value(json.total_revenue.clone());
+async fn my_get() -> impl IntoResponse {
+    // Load .env file into the environment
+    dotenv().ok();
+    
+    // MongoDB connection
+    let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
+    let mongo_client = Client::with_uri_str(&mongo_uri).await.expect("Failed to initialize MongoDB client");
+    
+    let mongo_query: Document = doc! {
+      "iso3": { "$in": ["GBR", "AUS"] }
+    };
+    
+     // Attempt to perform the query and handle potential errors
+     match load_uparams(mongo_client, mongo_query).await {
+        Ok(response) => {
+            // If successful, wrap the data in ApiResponse
+            Json(ApiResponse {
+                success: true,
+                data: Some(response),
+                message: None,
+            })
+        }
+        Err(e) => {
+            // If there's an error, return a JSON error message
+            Json(ApiResponse {
+                success: false,
+                data: None,
+                message: Some(format!("Failed to load data: {}", e)),
+            })
+        }
     }
-
-    // setup style
-    let style =  book.get_sheet_by_name_mut(SHEET_NAME).unwrap().get_style_mut("A2");
-    style.set_background_color(Color::COLOR_BLUE); // fill color
-
-    // save excel to an in-memory buffer
-    let mut buffer = Cursor::new(Vec::new());
-    let _ = xlsx::write_writer(&book, &mut buffer).expect("Failed to write Excel to buffer");
-
-    // read data from the buffer and prepare it as bytes
-    let file_data = Bytes::from(buffer.into_inner());
-
-     // return file_data
-     (StatusCode::OK, Body::from(file_data))
 }
+
+
+
 
 
 #[shuttle_runtime::main]
-async fn main() -> shuttle_axum::ShuttleAxum {
-    /*
-    NOTE: Verify the `Fundamentals` struct and ensure that the `/api/` endpoint is included in the request.
-    curl http://127.0.0.1:8000/api/ \
-    -H "Content-Type: application/json" \
-    -d '{"company_name": "a", "primary_sector": "bb", "primary_country": "c", "total_revenue": "3"}' \
-    -o model.xlsx
-     */
-    let router = Router::new().route("/api/", post(spreadsheet_writer));
+async fn main() -> ShuttleAxum {
+    
+    // make a post that does the mongodb thing
+    let router = Router::new().route("/mdb/", get(my_get));
+    
     Ok(router.into())
 }
