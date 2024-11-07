@@ -21,3 +21,12 @@ shuttle deploy
 
 # Learnings
 * xslxwriter depends on libclang library which is not part of shuttle [therefore] use umya_spreadsheet
+
+
+
+https://docs.shuttle.rs/configuration/environment
+
+
+This tutorial is really helpful
+
+https://www.youtube.com/watch?v=lowVW7Wa0nI

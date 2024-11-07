@@ -1,56 +1,27 @@
+use std::io::Cursor;
+
 use axum::{
-    body::Body, http::StatusCode, response::IntoResponse, routing::post, Json, Router
+    body::Body,
+    http::StatusCode,
+    Json,
+    response::IntoResponse,
+    routing::post,
+    Router,
 };
 
-//https://www.mongodb.com/docs/drivers/rust/current/usage-examples/findOne/#std-label-rust-find-one-usage
-use mongodb::{bson::{doc, Document}, Client, Collection, Cursor as MongoCursor}; // Alias mongodb::Cursor to MongoCursor
-
-
-use serde::{Deserialize, Serialize};
 use umya_spreadsheet::*;
 use bytes::Bytes;
 use writer::xlsx;
-use std::{env, io::Cursor};
-use dotenvy::dotenv;
 
-// used to create static files / webpage
-use tower_http::services::ServeDir;
-
-
-
-#[derive(Serialize, Deserialize)]
-struct PostParams {
-    company_name: String,
-    primary_sector: String,
-    primary_country: String,
-    total_revenue: String,
+// add models
+mod models {
+    pub mod user_inputs;
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-struct NatureBySector{
-    nature_risk: String,
-    utics: String,
-    value: String,
-    materiality: String
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct UParams{
-    iso3: String,
-    scenario: String,
-    utics: String,
-    year: i32,
-    value: f64,
-    delphi_financial_var: String,
-}
+use models::user_inputs::Fundamentals;
 
 
-async fn _hello_word(Json(json): Json<PostParams>) -> String {
-    format!("POST returns key: {0}, value: {1}", json.company_name, json.total_revenue)
-}
-
-
-async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
+async fn spreadsheet_writer(Json(json): Json<Fundamentals>) -> impl IntoResponse {
     const SHEET_NAME: &str = "Unwritten";
 
     // setup spreadsheet
@@ -86,48 +57,15 @@ async fn json2excel(Json(json): Json<PostParams>) -> impl IntoResponse {
 }
 
 
-async fn load_uparams(mongo_query: Document) -> mongodb::error::Result<Vec<String>>  {
-    // load .env file into the environment
-    dotenv().ok();
-
-    // connection
-    let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
-    let mongo_client =Client::with_uri_str(mongo_uri).await?;
-
-    // store output in an array
-    let mut all_docs = Vec::new();
-
-    // select collection from database
-    let uparams: Collection<UParams> = mongo_client
-        .database("delphi-dev")
-        .collection("uparams");
-
-    let mut cursor: MongoCursor<UParams> = uparams.find(mongo_query).limit(3).await?;
-
-
-    while cursor.advance().await? {
-        let doc = cursor.deserialize_current()?;
-        all_docs.push(doc.iso3);
-    };
-
-    Ok(all_docs)
-}
-
 #[shuttle_runtime::main]
 async fn main() -> shuttle_axum::ShuttleAxum {
-    // mongodb
-    let mongo_query: Document = doc! {
-        "iso3": { "$in": ["GBR", "IRL"] }
-    };
-    let data = load_uparams(mongo_query).await;
-    print!("{:?}", data);
-
-    // create a static page for documentation
-    let static_files = Router::new().nest_service("/", ServeDir::new("assets"));
-    
-    // routes
-    let dynamic_route = Router::new().route("/api/", post(json2excel));
-    let router = static_files.merge(dynamic_route);
-
+    /*
+    NOTE: Verify the `Fundamentals` struct and ensure that the `/api/` endpoint is included in the request.
+    curl http://127.0.0.1:8000/api/ \
+    -H "Content-Type: application/json" \
+    -d '{"company_name": "a", "primary_sector": "bb", "primary_country": "c", "total_revenue": "3"}' \
+    -o model.xlsx
+     */
+    let router = Router::new().route("/api/", post(spreadsheet_writer));
     Ok(router.into())
 }
