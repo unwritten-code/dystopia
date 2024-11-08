@@ -2,14 +2,21 @@ use axum::{
     response::IntoResponse,
     routing::get,
     Router,
-    // body::Body,
     http::StatusCode
 };
 
+use std::io::Cursor;
 use shuttle_axum::ShuttleAxum;
-use mongodb::{bson::{doc, Document}, Client, Collection}; // Alias mongodb::Cursor to MongoCursor
+use mongodb::{bson::{doc, Document}, Client, Collection};
+
 use polars::prelude::*;
+use polars_io::SerReader;
+use polars_io::prelude::{JsonReader, JsonFormat};
+
 use std::env;
+use std::num::NonZeroUsize;
+// use std::io::Cursor;
+
 use dotenvy::dotenv;
 
 mod models{
@@ -17,13 +24,6 @@ mod models{
 }
 use models::spectacle::UParams;
 
-
-// #[derive(Serialize)]
-// struct ApiResponse<T> {
-//     success: bool,
-//     data: Option<T>,
-//     message: Option<String>,
-// }
 
 async fn uparams_df(
         mongo_client: Client,
@@ -34,41 +34,35 @@ async fn uparams_df(
         .database("delphi-dev")
         .collection("uparams");
 
-    let mut cursor = uparams.find(uparams_query).await.expect("Failed to fetch documents");
+    // Cursor<T> != Json
+    // https://docs.rs/mongodb/3.1.0/mongodb/struct.Cursor.html
+    let mut result = uparams.find(uparams_query).await.expect("Failed to fetch documents");
 
-    // Initialize vectors to store each column's data
-    let mut col_iso3: Vec<String> = Vec::new();
-    let mut col_scenario: Vec<String> = Vec::new();
-    let mut col_utics: Vec<String> = Vec::new();
-    let mut col_year: Vec<i32> = Vec::new();
-    let mut col_value: Vec<f64> = Vec::new();
-    let mut col_delphi_financial_var: Vec<String> = Vec::new();
+    let mut vector = Vec::new();
 
-
-    while cursor.advance().await.expect("Failed to advance cursor") {
-        match cursor.deserialize_current() {
-            Ok(doc) => {
-                col_iso3.push(doc.iso3);
-                col_scenario.push(doc.scenario);
-                col_utics.push(doc.utics);
-                col_year.push(doc.year);
-                col_value.push(doc.value);
-                col_delphi_financial_var.push(doc.delphi_financial_var);
+    // Iterate through documents and store in a Vector
+    while result.advance().await.expect("Failed to advance result") {
+        match result.deserialize_current() {
+            Ok(document) => {
+                // Push successfully deserialized document to vector
+                vector.push(document);
             },
-            Err(e) => eprintln!("Failed to deserialize document: {}", e),
+            Err(e) => {
+                // Handle errors
+                eprintln!("Failed to deserialize document: {:?}", e);
+            }
         }
-    };
+    }
 
-    // Create a Series from vectors and build the DataFrame
-    let df = DataFrame::new(vec![
-        Column::new("iso3".into(), col_iso3),
-        Column::new("scenario".into(), col_scenario),
-        Column::new("utics".into(), col_utics),
-        Column::new("year".into(), col_year),
-        Column::new("value".into(), col_value),
-        Column::new("delphi_financial_var".into(), col_delphi_financial_var),
-    ])?;
+    // Convert the vector to JSON
+    let json_data = serde_json::to_string(&vector).expect("Failed to serialize vector to JSON");
 
+    //https://docs.pola.rs/api/rust/dev/polars_io/json/index.html
+    // Use JsonReader with a Cursor
+    let df = JsonReader::new(Cursor::new(json_data))
+        .with_json_format(JsonFormat::Json)
+        .finish()?;
+ 
     Ok(df)
 }
 
@@ -76,7 +70,7 @@ async fn uparams_df(
 async fn my_get() -> impl IntoResponse {
     // Load .env file into the environment
     dotenv().ok();
-    
+
     // Reusable connection to MongoDB
     let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
     let mongo_client = Client::with_uri_str(&mongo_uri).await.expect("Failed to initialize MongoDB client");
@@ -99,9 +93,6 @@ async fn my_get() -> impl IntoResponse {
 
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
-    
-    // mongoDB
     let router = Router::new().route("/mdb/", get(my_get));
-    
     Ok(router.into())
 }
