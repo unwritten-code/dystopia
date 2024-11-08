@@ -2,7 +2,8 @@ use axum::{
     response::IntoResponse,
     routing::get,
     Router,
-    http::StatusCode
+    http::StatusCode,
+    extract::Path
 };
 
 use shuttle_axum::ShuttleAxum;
@@ -65,7 +66,14 @@ async fn uparams_df(
 }
 
 
-async fn my_get() -> impl IntoResponse {
+async fn my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoResponse {
+
+    //
+    let query: Document = doc! {
+        "iso3": { "$in": [country.clone()] },
+        "utics": {"$in": [sector.clone()]}
+    };
+
     // Load .env file into the environment
     dotenv().ok();
 
@@ -73,11 +81,7 @@ async fn my_get() -> impl IntoResponse {
     let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
     let mongo_client = Client::with_uri_str(&mongo_uri).await.expect("Failed to initialize MongoDB client");
 
-    let uparams_query: Document = doc! {
-        "iso3": { "$in": ["GBR"] }
-      };
-
-    let df = uparams_df(mongo_client, uparams_query).await.expect("Failed to fetch data");
+    let df = uparams_df(mongo_client, query).await.expect("Failed to fetch data");
     print!("{:#?}", df);
 
     // do maths in Polars
@@ -91,6 +95,9 @@ async fn my_get() -> impl IntoResponse {
 
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
-    let router = Router::new().route("/mdb/", get(my_get));
+
+    // example query http://127.0.0.1:8000/api/GBR/UT201050
+    let router = Router::new().route("/api/:country/:sector", get(my_get));
+
     Ok(router.into())
 }
