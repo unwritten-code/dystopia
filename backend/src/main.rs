@@ -5,7 +5,6 @@ use axum::{
     http::StatusCode
 };
 
-use std::io::Cursor;
 use shuttle_axum::ShuttleAxum;
 use mongodb::{bson::{doc, Document}, Client, Collection};
 
@@ -13,9 +12,8 @@ use polars::prelude::*;
 use polars_io::SerReader;
 use polars_io::prelude::{JsonReader, JsonFormat};
 
+use std::io::Cursor;
 use std::env;
-use std::num::NonZeroUsize;
-// use std::io::Cursor;
 
 use dotenvy::dotenv;
 
@@ -58,7 +56,7 @@ async fn uparams_df(
     let json_data = serde_json::to_string(&vector).expect("Failed to serialize vector to JSON");
 
     //https://docs.pola.rs/api/rust/dev/polars_io/json/index.html
-    // Use JsonReader with a Cursor
+    // Load a Json into a Dataframe with a Cursor
     let df = JsonReader::new(Cursor::new(json_data))
         .with_json_format(JsonFormat::Json)
         .finish()?;
@@ -82,7 +80,7 @@ async fn my_get() -> impl IntoResponse {
     let df = uparams_df(mongo_client, uparams_query).await.expect("Failed to fetch data");
     print!("{:#?}", df);
 
-    // do maths
+    // do maths in Polars
 
     // convert DataFrame to JSON. Use Polars write to json into memory buffer. Return as a body
 
