@@ -1,9 +1,5 @@
 use axum::{
-    response::IntoResponse,
-    routing::get,
-    Router,
-    http::StatusCode,
-    extract::Path
+    extract::Path, http::StatusCode, response::IntoResponse, routing::post, Router, Json
 };
 
 use shuttle_axum::ShuttleAxum;
@@ -20,11 +16,14 @@ use dotenvy::dotenv;
 
 mod models{
     pub mod spectacle;
+    pub mod fundamentals;
 }
+
 use models::spectacle::UParams;
+use models::fundamentals::Fundamentals;
 
 
-async fn uparams_df(
+async fn _uparams_df(
         mongo_client: Client,
         uparams_query: Document,
     ) -> Result<DataFrame, PolarsError>  {
@@ -66,7 +65,7 @@ async fn uparams_df(
 }
 
 
-async fn my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoResponse {
+async fn _my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoResponse {
 
     //
     let query: Document = doc! {
@@ -81,7 +80,7 @@ async fn my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoRes
     let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
     let mongo_client = Client::with_uri_str(&mongo_uri).await.expect("Failed to initialize MongoDB client");
 
-    let df = uparams_df(mongo_client, query).await.expect("Failed to fetch data");
+    let df = _uparams_df(mongo_client, query).await.expect("Failed to fetch data");
     print!("{:#?}", df);
 
     // do maths in Polars
@@ -93,11 +92,38 @@ async fn my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoRes
 }
 
 
+/* does this need to be json */
+async fn post_inputs(Json(inputs): Json<Fundamentals>) -> impl IntoResponse {
+
+    // Convert to polars.
+    let json_data = serde_json::to_string(&inputs).expect("Failed to serialize vector to JSON");
+    
+    let df = JsonReader::new(Cursor::new(json_data))
+        .with_json_format(JsonFormat::Json)
+        .finish();
+
+    print!{"{:?}", df}
+
+
+    // multiply proportions
+    return StatusCode::OK
+}
+
+
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
 
     // example query http://127.0.0.1:8000/api/GBR/UT201050
-    let router = Router::new().route("/api/:country/:sector", get(my_get));
+    // let router = Router::new().route("/api/:country/:sector", get(my_get));
+
+    /*
+    curl http://127.0.0.1:8000/post/ \
+    -H "Content-Type: application/json" \
+    -d '{"company_name": "a", "primary_sector": "bb", "primary_country": "c", "total_revenue": "3"}'
+    -o some.json
+    */
+    
+    let router = Router::new().route("/post/", post(post_inputs));
 
     Ok(router.into())
 }

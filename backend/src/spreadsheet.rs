@@ -16,15 +16,15 @@ use bytes::Bytes;
 use writer::xlsx;
 
 mod models {
-    pub mod user_inputs;
+    pub mod fundamentals;
 }
 
-use models::user_inputs::Fundamentals;
+use models::fundamentals::Fundamentals;
 
 // Constants for sheet name
 const SHEET_NAME: &str = "Unwritten";
 
-async fn spreadsheet_writer(Json(json): Json<Fundamentals>) -> impl IntoResponse {
+async fn spreadsheet_writer(Json(inpts): Json<Fundamentals>) -> impl IntoResponse {
     // Setup spreadsheet
     let mut book = new_file();
     let _ = book.remove_sheet(0); // Remove default sheet (Sheet1)
@@ -38,10 +38,10 @@ async fn spreadsheet_writer(Json(json): Json<Fundamentals>) -> impl IntoResponse
         sheet.get_cell_mut("A4").set_value("Total Revenue");
 
         // Insert JSON data into spreadsheet
-        sheet.get_cell_mut("B1").set_value(json.company_name.clone());
-        sheet.get_cell_mut("B2").set_value(json.primary_sector.clone());
-        sheet.get_cell_mut("B3").set_value(json.primary_country.clone());
-        sheet.get_cell_mut("B4").set_value(json.total_revenue.clone());
+        sheet.get_cell_mut("B1").set_value(inputs.company_name.clone());
+        sheet.get_cell_mut("B2").set_value(inputs.primary_sector.clone());
+        sheet.get_cell_mut("B3").set_value(inputs.primary_country.clone());
+        sheet.get_cell_mut("B4").set_value(inputs.total_revenue.clone());
     }
 
     // Set style
