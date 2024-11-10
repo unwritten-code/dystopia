@@ -28,17 +28,16 @@ async fn polars_end_point(Json(inputs): Json<Value>) -> impl IntoResponse {
          .finish()
          .expect("Failed to create DataFrame");
 
-    // LazyFrame manipulation   
-    let df = df.lazy(); // Convert to LazyFrame to perform expression-based transformations
+    // Convert to LazyFrame to perform expression-based transformations
+    let df = df.lazy(); 
 
     let df = df.with_column((col("total_revenue") * col("sector_rev_share")).alias("sector_rev_share"));
     let df = df.with_column((col("total_revenue") * col("country_rev_share")).alias("country_rev_share"));
     
-    let df = df.collect();  // Execute the lazy operation
+    // Execute the lazy operation
+    let df = df.collect(); 
     
     print!{"{:?}", df}
-
-    // 
 
     return StatusCode::OK
 }
