@@ -24,7 +24,7 @@ use models::fundamentals::Fundamentals;
 // Constants for sheet name
 const SHEET_NAME: &str = "Unwritten";
 
-async fn spreadsheet_writer(Json(inpts): Json<Fundamentals>) -> impl IntoResponse {
+async fn spreadsheet_writer(Json(inputs): Json<Fundamentals>) -> impl IntoResponse {
     // Setup spreadsheet
     let mut book = new_file();
     let _ = book.remove_sheet(0); // Remove default sheet (Sheet1)

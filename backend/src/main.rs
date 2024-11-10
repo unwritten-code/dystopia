@@ -1,5 +1,5 @@
 use axum::{
-    extract::Path, http::StatusCode, response::IntoResponse, routing::get, Router
+    extract::Path, http::StatusCode, response::IntoResponse, routing::post, Json, Router
 };
 
 use serde_json::Value;
@@ -91,16 +91,14 @@ async fn _get_mongodb(Path((country, sector)): Path<(String, String)>) -> impl I
 
 
 /* does this need to be json */
-async fn send_it() -> impl IntoResponse {
+async fn send_it(Json(inputs): Json<Value>) -> impl IntoResponse {
 
-     // JSON input as a string. normally passed via post command
-     let inputs = r#"{"company_name": "a", "primary_sector": "bb", "primary_country": "c", "total_revenue": "3"}"#;
+    // Convert JSON data to a string and wrap it in a Cursor
+    let json_data = serde_json::to_string(&inputs).expect("Failed to serialize JSON");
 
-     // Parse JSON input to `serde_json::Value`
-     let json_data: Value = serde_json::from_str(inputs).expect("Failed to parse JSON");
  
      // Convert to Polars DataFrame
-     let df = JsonReader::new(Cursor::new(json_data.to_string()))
+     let df = JsonReader::new(Cursor::new(json_data))
          .with_json_format(JsonFormat::Json)
          .finish()
          .expect("Failed to create DataFrame");
@@ -116,7 +114,15 @@ async fn main() -> ShuttleAxum {
 
     // example query http://127.0.0.1:8000/api/GBR/UT201050
     // let router = Router::new().route("/api/:country/:sector", get(get_mongodb));
-    let router = Router::new().route("/send_it/", get(send_it));
+
+
+    /*
+    curl http://127.0.0.1:8000/send_it/ \
+    -H "Content-Type: application/json" \
+    -d '{"company_name": "a", "primary_sector": "bb", "primary_country": "c", "total_revenue": "3"}' 
+    */
+
+    let router = Router::new().route("/send_it/", post(send_it));
 
     Ok(router.into())
 }
