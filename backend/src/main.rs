@@ -1,7 +1,8 @@
 use axum::{
-    extract::Path, http::StatusCode, response::IntoResponse, routing::post, Router, Json
+    extract::Path, http::StatusCode, response::IntoResponse, routing::get, Router
 };
 
+use serde_json::Value;
 use shuttle_axum::ShuttleAxum;
 use mongodb::{bson::{doc, Document}, Client, Collection};
 
@@ -20,7 +21,6 @@ mod models{
 }
 
 use models::spectacle::UParams;
-use models::fundamentals::Fundamentals;
 
 
 async fn _uparams_df(
@@ -65,9 +65,9 @@ async fn _uparams_df(
 }
 
 
-async fn _my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoResponse {
+async fn _get_mongodb(Path((country, sector)): Path<(String, String)>) -> impl IntoResponse {
 
-    //
+    // unpack uri
     let query: Document = doc! {
         "iso3": { "$in": [country.clone()] },
         "utics": {"$in": [sector.clone()]}
@@ -83,8 +83,6 @@ async fn _my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoRe
     let df = _uparams_df(mongo_client, query).await.expect("Failed to fetch data");
     print!("{:#?}", df);
 
-    // do maths in Polars
-
     // convert DataFrame to JSON. Use Polars write to json into memory buffer. Return as a body
 
     // Return the JSON as a response
@@ -93,19 +91,22 @@ async fn _my_get(Path((country, sector)): Path<(String, String)>) -> impl IntoRe
 
 
 /* does this need to be json */
-async fn post_inputs(Json(inputs): Json<Fundamentals>) -> impl IntoResponse {
+async fn send_it() -> impl IntoResponse {
 
-    // Convert to polars.
-    let json_data = serde_json::to_string(&inputs).expect("Failed to serialize vector to JSON");
-    
-    let df = JsonReader::new(Cursor::new(json_data))
-        .with_json_format(JsonFormat::Json)
-        .finish();
+     // JSON input as a string. normally passed via post command
+     let inputs = r#"{"company_name": "a", "primary_sector": "bb", "primary_country": "c", "total_revenue": "3"}"#;
+
+     // Parse JSON input to `serde_json::Value`
+     let json_data: Value = serde_json::from_str(inputs).expect("Failed to parse JSON");
+ 
+     // Convert to Polars DataFrame
+     let df = JsonReader::new(Cursor::new(json_data.to_string()))
+         .with_json_format(JsonFormat::Json)
+         .finish()
+         .expect("Failed to create DataFrame");
 
     print!{"{:?}", df}
 
-
-    // multiply proportions
     return StatusCode::OK
 }
 
@@ -114,16 +115,8 @@ async fn post_inputs(Json(inputs): Json<Fundamentals>) -> impl IntoResponse {
 async fn main() -> ShuttleAxum {
 
     // example query http://127.0.0.1:8000/api/GBR/UT201050
-    // let router = Router::new().route("/api/:country/:sector", get(my_get));
-
-    /*
-    curl http://127.0.0.1:8000/post/ \
-    -H "Content-Type: application/json" \
-    -d '{"company_name": "a", "primary_sector": "bb", "primary_country": "c", "total_revenue": "3"}'
-    -o some.json
-    */
-    
-    let router = Router::new().route("/post/", post(post_inputs));
+    // let router = Router::new().route("/api/:country/:sector", get(get_mongodb));
+    let router = Router::new().route("/send_it/", get(send_it));
 
     Ok(router.into())
 }
