@@ -5,13 +5,12 @@ use axum::{
 
 use shuttle_axum::ShuttleAxum;
 
-use serde_json::Value;
-
 use polars::prelude::*;
 use polars_io::SerReader;
 use polars_io::prelude::{JsonReader, JsonFormat};
 
 use std::io::Cursor;
+use serde_json::Value;
 
 mod models{
     pub mod fundamentals;
@@ -23,18 +22,19 @@ async fn polars_end_point(Json(inputs): Json<Value>) -> impl IntoResponse {
     // Convert JSON data to a string and wrap it in a Cursor
     let json_data = serde_json::to_string(&inputs).expect("Failed to serialize JSON");
  
-     // Convert to Polars DataFrame
+     // Convert JSON to Polars DataFrame
      let df = JsonReader::new(Cursor::new(json_data))
          .with_json_format(JsonFormat::Json)
          .finish()
          .expect("Failed to create DataFrame");
 
     // LazyFrame manipulation   
-    let df = df
-        .lazy()  // Convert to LazyFrame to perform expression-based transformations
-        .with_column((col("total_revenue") * col("sector_rev_share")).alias("sector_rev_share"))
-        .with_column((col("total_revenue") * col("country_rev_share")).alias("country_rev_share"))
-        .collect();  // Execute the lazy operation
+    let df = df.lazy(); // Convert to LazyFrame to perform expression-based transformations
+
+    let df = df.with_column((col("total_revenue") * col("sector_rev_share")).alias("sector_rev_share"));
+    let df = df.with_column((col("total_revenue") * col("country_rev_share")).alias("country_rev_share"));
+    
+    let df = df.collect();  // Execute the lazy operation
     
     print!{"{:?}", df}
 
