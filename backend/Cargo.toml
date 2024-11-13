@@ -18,3 +18,7 @@ polars= { version = "0.44.2", features = ["json", "lazy"] }
 polars-io = "0.44.2"
 # load .env
 dotenvy="0.15"
+
+# Turso stuff
+libsql-client = "0.30.1" 
+shuttle-turso="0.48.0"
