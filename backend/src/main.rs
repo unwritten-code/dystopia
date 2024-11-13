@@ -17,6 +17,7 @@ mod models{
 }
 
 use libsql::Database;
+// use shuttle_runtime::{Secret, SecretStore};
 
 
 async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
@@ -63,36 +64,31 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
 }
 
 
-// async fn raw_uparams() -> PolarsResult<()> {
-//     let connection_str = std::env::var("MONGODB_URI").unwrap();
-//     let db = "delphi-dev";
-//     let collection = "uparams";
-
-//     let df =  LazyFrame::scan_mongo_collection(MongoScanOptions {
-//         batch_size: None,
-//         connection_str,
-//         db,
-//         collection,
-//         infer_schema_length: Some(1000),
-//         n_rows: None,
-//     })?
-//     .collect()?;
-
-//     return StatusCode::OK
-// }
-
 #[shuttle_runtime::main]
 async fn main(
     #[shuttle_turso::Turso(
-        addr = &std::env::var("TURSO_DATABASE_URL").unwrap(),
-        token = &std::env::var("TURSO_AUTH_TOKEN").unwrap()
-    )] _conn: Database,
+        addr = "libsql://test-ayephillip.turso.io",
+        local_addr ="libsql://test-ayephillip.turso.io",
+        token = ""
+    )] db: Database,
 ) -> ShuttleAxum {
+
+    let conn = db.connect().expect("msg");
+
+    let mut rows = conn.query("SELECT * FROM Students", ())
+        .await
+        .expect("Failed to execute query");
+
+   while let Some(row) =  rows.next().await.expect("msg") {
+        println!("Table name: {:?}", row);   
+    } 
+
+    // useful query = "SELECT name FROM sqlite_master WHERE type='table'"
     // https://docs.turso.tech/sdk/rust/quickstart#remote-only
-    // let url = std::env::var("TURSO_DATABASE_URL").unwrap();
-    // let token = std::env::var("TURSO_AUTH_TOKEN").unwrap();
-    // let conn = db.connect();
-    // conn.execute("SELECT * FROM users", ());
+    // https://github.com/tursodatabase/libsql/tree/main/libsql/examples
+    //https://docs.turso.tech/sdk/rust/guides/axum
+
+
 
     /*
     curl http://127.0.0.1:8000/clean_inputs/ \
