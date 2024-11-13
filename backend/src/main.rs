@@ -84,8 +84,8 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
 #[shuttle_runtime::main]
 async fn main(
     #[shuttle_turso::Turso(
-        addr="libsql://test-ayephillip.turso.io",
-        token="eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJleHAiOjE3MzQwOTY0ODgsImdpZCI6IjIzNDFjMDUzLTUzOTgtNGRmZi05OTUwLTk5ZjYwZWRlYjk4NSIsImlhdCI6MTczMTUwNDQ4OH0.4L1X5uhtVnIKPr2QlcXx91o-IpT1TkM-VZpaV7sKQ4N9PQCPcM0gb3GgH8kZNLz1OLUzXCgGHNP4Apbd3DoJBA"
+        addr = &std::env::var("TURSO_DATABASE_URL").unwrap(),
+        token = &std::env::var("TURSO_AUTH_TOKEN").unwrap()
     )] _conn: Database,
 ) -> ShuttleAxum {
     // https://docs.turso.tech/sdk/rust/quickstart#remote-only
