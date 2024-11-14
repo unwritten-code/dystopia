@@ -16,19 +16,13 @@ mod models{
     pub mod fundamentals;
 }
 
-use libsql::Database;
-// use shuttle_runtime::{Secret, SecretStore};
-
-
 async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
-    // Convert JSON data to a string and wrap it in a Cursor
-    let json_data = serde_json::to_string(&inputs).expect("Failed to serialize JSON");
-
      // Convert JSON to Polars DataFrame
-     let df = JsonReader::new(Cursor::new(json_data))
+     let df = JsonReader::new(Cursor::new(inputs.to_string()))
          .with_json_format(JsonFormat::Json)
          .finish()
          .expect("Failed to create DataFrame");
+
 
     // Convert to LazyFrame to perform expression-based transformations
     let df = df.lazy();
@@ -65,30 +59,14 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
 
 
 #[shuttle_runtime::main]
-async fn main(
-    #[shuttle_turso::Turso(
-        addr = "libsql://test-ayephillip.turso.io",
-        local_addr ="libsql://test-ayephillip.turso.io",
-        token = ""
-    )] db: Database,
-) -> ShuttleAxum {
+async fn main() -> ShuttleAxum {
 
-    let conn = db.connect().expect("msg");
-
-    let mut rows = conn.query("SELECT * FROM Students", ())
-        .await
-        .expect("Failed to execute query");
-
-   while let Some(row) =  rows.next().await.expect("msg") {
-        println!("Table name: {:?}", row);   
-    } 
-
-    // useful query = "SELECT name FROM sqlite_master WHERE type='table'"
-    // https://docs.turso.tech/sdk/rust/quickstart#remote-only
-    // https://github.com/tursodatabase/libsql/tree/main/libsql/examples
-    //https://docs.turso.tech/sdk/rust/guides/axum
-
-
+    /*
+    useful query = "SELECT name FROM sqlite_master WHERE type='table'"
+    https://docs.turso.tech/sdk/rust/quickstart#remote-only
+    https://github.com/tursodatabase/libsql/tree/main/libsql/examples
+    https://docs.turso.tech/sdk/rust/guides/axum
+    */
 
     /*
     curl http://127.0.0.1:8000/clean_inputs/ \
@@ -105,7 +83,7 @@ async fn main(
     */
 
     /* Flattened structure
-    curl http://127.0.0.1:8010/clean_inputs/ \
+    curl http://127.0.0.1:8000/clean_inputs/ \
     -H "Content-Type: application/json" \
     -d '[
     {"pkey":9158,"total_revenue":999,"org":"natasha","three_random_word_id":"actual-goes-yourself","company_name":"Ice Creamapalooza","year":null,"category":"asset","search_term":"Sugar farm","metric":"lon","value":-51.107786,"unit":null,"in_portfolio":false,"external_id":"5da66e19-4f47-47a0-a7d8-c35ba7b1764c","secondary_search_term":"agricultural_farm"},

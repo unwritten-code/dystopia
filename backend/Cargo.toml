@@ -16,10 +16,10 @@ polars= { version = "0.44.2", features = ["json", "lazy"] }
 polars-io = "0.44.2"
 # load .env
 dotenvy="0.15"
-shuttle-turso = "0.49.0"
 
 # really old but needed for turso!
 # https://github.com/shuttle-hq/shuttle-examples/issues/184#issuecomment-2296950163
-libsql = "0.3.1"
+# libsql = "0.3.1"
+# shuttle-turso = "0.49.0"
 shuttle-runtime = "0.49.0"
 shuttle-axum = "0.49.0"
