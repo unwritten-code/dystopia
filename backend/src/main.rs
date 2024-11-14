@@ -2,16 +2,15 @@ use axum::{
     extract::Path, http::StatusCode, response::IntoResponse, routing::get, Router
 };
 
+use serde_json::{Value, json};
 use shuttle_axum::ShuttleAxum;
 use mongodb::{bson::{doc, Document}, Client, Cursor as MCursor};
 
-use polars::prelude::*;
 use polars_io::SerReader;
 use polars_io::prelude::{JsonReader, JsonFormat};
 
 use std::io::Cursor;
 use std::env;
-
 use dotenvy::dotenv;
 
 mod models{
@@ -20,42 +19,13 @@ mod models{
 
 use models::spectacle::UParams;
 
-
-async fn cursor_to_df(
-        mut cursor: MCursor<UParams>,
-    ) -> Result<DataFrame, PolarsError>  {
-
-    let mut vector = Vec::new();
-
-    // Iterate through documents and store in a Vector
-    while cursor.advance().await.expect("Failed to advance result") {
-        match cursor.deserialize_current() {
-            Ok(document) => {
-                // Push successfully deserialized document to vector
-                vector.push(document);
-            },
-            Err(e) => {
-                // Handle errors
-                eprintln!("Failed to deserialize document: {:?}", e);
-            }
-        }
-    }
-
-    // Convert the vector to JSON
-    let json_data = serde_json::to_string(&vector).expect("Failed to serialize vector to JSON");
-
-    //https://docs.pola.rs/api/rust/dev/polars_io/json/index.html
-    // Load a Json into a Dataframe with a Cursor
-    let df = JsonReader::new(Cursor::new(json_data))
-        .with_json_format(JsonFormat::Json)
-        .finish()?;
-    
-    Ok(df)
-}
+// use StreamExt from futures to asynchronously collect the cursor items.
+use futures::StreamExt;
 
 
-async fn connect_mdb(Path((country, sector)): Path<(String, String)>) -> impl IntoResponse {
-    dotenv().ok(); // load environment variable
+
+async fn connect_mdb(Path(country): Path<String>) -> impl IntoResponse {
+    dotenv().ok(); // load environment variables
 
     // Connect to MongoDB
     let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
@@ -63,8 +33,7 @@ async fn connect_mdb(Path((country, sector)): Path<(String, String)>) -> impl In
 
     // Construct the query document for MongoDB
     let query_filter: Document = doc! {
-        "iso3": { "$in": [country.clone()] },
-        "utics": { "$in": [sector.clone()] }
+        "iso3": { "$in": [country.clone()] }
     };
     
     // Access the "uparams" collection in the "delphi-dev" database
@@ -81,13 +50,27 @@ async fn connect_mdb(Path((country, sector)): Path<(String, String)>) -> impl In
     // Cursor<T> != Json
     // https://docs.rs/mongodb/3.1.0/mongodb/struct.Cursor.html
 
-    /* conversion step*/
-    let df = cursor_to_df(cursor).await;
+    /* TERRIBLE CODE STARTS HERE */
+
+    // Collect the documents into a JSON array
+    let json_array: Value = serde_json::json!(cursor
+        .map(|doc_result| {
+            doc_result
+                .map(|doc| serde_json::to_value(doc).expect("Failed to convert to JSON"))
+                .unwrap_or_else(|_| json!({ "error": "Failed to fetch document" }))
+        })
+        .collect::<Vec<_>>()
+        .await);
+
+    /* Terrible Code Starts Here*/
+    // let df = cursor_to_df(cursor).await;
+
+    let df = JsonReader::new(Cursor::new(json_array.to_string()))
+        .with_json_format(JsonFormat::Json)
+        .finish();
+
     print!("{:?}", df);
 
-    // convert DataFrame to JSON. Use Polars write to json into memory buffer. Return as a body
-
-    // Return the JSON as a response
     return StatusCode::OK
 }
 
@@ -96,8 +79,8 @@ async fn connect_mdb(Path((country, sector)): Path<(String, String)>) -> impl In
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
 
-    // example query http://127.0.0.1:8000/api/GBR/UT201050
-    let router = Router::new().route("/api/:country/:sector", get(connect_mdb));
+    // example query http://127.0.0.1:8000/api/GBR
+    let router = Router::new().route("/api/:country", get(connect_mdb));
 
     Ok(router.into())
 }
