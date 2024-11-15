@@ -72,14 +72,21 @@ async fn mongodb_to_polars() -> impl IntoResponse {
     return StatusCode::OK
 }
 
-async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
+async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
+    /*
+    1. Form data JSON -> Polars
+    2. Polars search_term to List
+    3. Retrieve matching search_term form Uparams
+    4. Multiply together
+    */
+
      // Convert JSON to Polars DataFrame
      let df = JsonReader::new(Cursor::new(inputs.to_string()))
          .with_json_format(JsonFormat::Json)
          .finish()
          .expect("Failed to create DataFrame");
 
-    // Convert to LazyFrame to perform expression-based transformations
+    // Convert DataFrame to LazyFrame to perform expression-based transformations
     let lf = df.lazy();
     
     // Multiply proportions (90%) by total_revenue ($)
@@ -90,25 +97,48 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
             .alias("absolute_proportion")
     ]);
 
-    // Filter to use Inner Join with uParams
-    let lf = lf.filter(col("metric").eq(lit("revenue_proportion")));
+    let lf_revprops = lf
+        .clone()
+        .filter(col("metric").eq(lit("revenue_proportion")));
 
-    // Create a list from the DataFrame. This cannot be done with a LazyFrame,
-    // as the data is only materialized when .collect() is called.
+    // Materialize the LazyFrame into a DataFrame
+    let df_revprops = lf_revprops
+        .collect()
+        .expect("Failed to collect the LazyFrame into a DataFrame.");
+
+     // Select the desired column
+     let series = df_revprops
+        .column("search_term")
+        .expect("Failed to find the column 'search_term'");
+
+    // Convert the Series to a Vec<Option<&str>> (or appropriate type based on column data)
+    let list: Vec<Option<&str>> = series
+        .str()
+        .expect("s")
+        .into_iter()
+        .collect();
+
+    print!("{:?}", list);
+
+
+    /*
     // lf.clone() is important here
-    let cloned_df = lf.clone().collect().expect("Failed to collect the LazyFrame into a DataFrame.");
-    // select a single column
-    let search_term = cloned_df.column("search_term");
-
+    // Create a list from the DataFrame. This cannot be done with a LazyFrame as the data is only materialized when .collect() is called.
+    let df_revprops = lf_revprops.collect().expect("Failed to collect the LazyFrame into a DataFrame.");
+    let df_revprops = df_revprops.column("search_term"); // select a single column
+    
     // Use `while let` to loop through the values
-    while let Some(value) = search_term.iter().next() {
+    while let Some(value) = df_revprops.iter().next() {
         println!("{:?}", value);
     }
+    */
+    
+
 
 
     /*
     1. Use list of search_terms to fitler monogDB query
-    2. inner join filtered uparams to clean_inputs
+    2. inner join filtered uparams to compute
     */
 
     // This code is only for printing
@@ -128,7 +158,7 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
     /* POST using flattened structure =
-    curl http://127.0.0.1:8000/clean_inputs/ \
+    curl http://127.0.0.1:8010/compute/ \
     -H "Content-Type: application/json" \
     -d '[
     {"pkey":9158,"total_revenue":999,"org":"natasha","three_random_word_id":"actual-goes-yourself","company_name":"Ice Creamapalooza","year":null,"category":"asset","search_term":"Sugar farm","metric":"lon","value":-51.107786,"unit":null,"in_portfolio":false,"external_id":"5da66e19-4f47-47a0-a7d8-c35ba7b1764c","secondary_search_term":"agricultural_farm"},
@@ -160,7 +190,7 @@ async fn main() -> ShuttleAxum {
     /* GET = http://127.0.0.1:8000/mongodb_to_polars/ */
 
     let router = Router::new()
-        .route("/clean_inputs/", post(clean_inputs))
+        .route("/compute/", post(compute))
         .route("/mongodb_to_polars/", get(mongodb_to_polars))
     ;
 
