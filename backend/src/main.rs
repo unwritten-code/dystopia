@@ -72,6 +72,32 @@ async fn mongodb_to_polars() -> impl IntoResponse {
     return StatusCode::OK
 }
 
+
+async fn test_function(list: Vec<String>) -> impl IntoResponse {
+    dotenv().ok();
+    let mongo_uri = env::var("MONGODB_URI").expect("Environment variable MONGODB_URI not set");
+    let mongo_client = Client::with_uri_str(&mongo_uri).await.expect("Failed to initialize MongoDB client");
+
+    let query_filter: Document = doc! {
+        "iso3": { "$in": list }
+    };
+
+    // Access the "uparams" collection in the "delphi-dev" database
+    let collection = mongo_client
+        .database("delphi-dev")
+        .collection("uparams");
+
+    // Execute the find operation with the specified filter and await the results
+    let _cursor: MCursor<UParams> = collection
+        .find(query_filter)
+        .await
+        .expect("Failed to fetch documents");
+
+    print!("Test!");
+    return StatusCode::OK
+}
+
+
 async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
     /*
     1. Convert Form Data (JSON) to Polars DataFrame ✅
@@ -118,8 +144,10 @@ async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
         .collect();
 
     /* 3. Retrieve Matching search_term from MongoDB Uparams */
+    test_function(list);
+    /* 4. */
     
-    print!("{:?}", list);
+    // print!("{:?}", list);
     println!("{:?}", df);
     return StatusCode::OK
 }
@@ -128,7 +156,7 @@ async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
     /* POST using flattened structure =
-    curl http://127.0.0.1:8030/compute/ \
+    curl http://127.0.0.1:8010/compute/ \
     -H "Content-Type: application/json" \
     -d '[
     {"pkey":9158,"total_revenue":999,"org":"natasha","three_random_word_id":"actual-goes-yourself","company_name":"Ice Creamapalooza","year":null,"category":"asset","search_term":"Sugar farm","metric":"lon","value":-51.107786,"unit":null,"in_portfolio":false,"external_id":"5da66e19-4f47-47a0-a7d8-c35ba7b1764c","secondary_search_term":"agricultural_farm"},
