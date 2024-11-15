@@ -108,11 +108,13 @@ async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
         .column("search_term")
         .expect("Failed to find the column 'search_term'");
 
-    // Convert the Series to a Vec<Option<&str>>
-    let list: Vec<Option<&str>> = search_term
+    // Convert the Series to a Vec<String>>
+    let list: Vec<String> = search_term
         .str()
-        .expect("s")
+        .expect("Failed to access string data")
         .into_iter()
+        // convert &str to String
+        .filter_map(|opt| opt.map(|s| s.to_string()))
         .collect();
 
     /* 3. Retrieve Matching search_term from MongoDB Uparams */
@@ -126,7 +128,7 @@ async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
     /* POST using flattened structure =
-    curl http://127.0.0.1:8010/compute/ \
+    curl http://127.0.0.1:8030/compute/ \
     -H "Content-Type: application/json" \
     -d '[
     {"pkey":9158,"total_revenue":999,"org":"natasha","three_random_word_id":"actual-goes-yourself","company_name":"Ice Creamapalooza","year":null,"category":"asset","search_term":"Sugar farm","metric":"lon","value":-51.107786,"unit":null,"in_portfolio":false,"external_id":"5da66e19-4f47-47a0-a7d8-c35ba7b1764c","secondary_search_term":"agricultural_farm"},
