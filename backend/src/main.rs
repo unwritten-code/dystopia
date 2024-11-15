@@ -74,10 +74,10 @@ async fn mongodb_to_polars() -> impl IntoResponse {
 
 async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
     /*
-    1. Form data JSON -> Polars
-    2. Polars search_term to List
-    3. Retrieve matching search_term form Uparams
-    4. Multiply together
+    1. Convert Form Data (JSON) to Polars DataFrame ✅
+    2. Transform search_term Column into a List ✅
+    3. Retrieve Matching search_term from MongoDB Uparams
+    4. Apply Index to revenue proportions
     */
 
      // Convert JSON to Polars DataFrame
@@ -97,60 +97,28 @@ async fn compute(Json(inputs): Json<Value>) -> impl IntoResponse {
             .alias("absolute_proportion")
     ]);
 
-    let lf_revprops = lf
-        .clone()
-        .filter(col("metric").eq(lit("revenue_proportion")));
+    // Filtering to revenue proportions but keep all columns
+    let lf = lf.filter(col("metric").eq(lit("revenue_proportion")));
 
-    // Materialize the LazyFrame into a DataFrame
-    let df_revprops = lf_revprops
-        .collect()
-        .expect("Failed to collect the LazyFrame into a DataFrame.");
+    // Materialize the LazyFrame into a DataFrame to extract a list
+    let df = lf.collect().expect("Failed to collect the LazyFrame into a DataFrame.");
 
-     // Select the desired column
-     let series = df_revprops
+    // Convert to Series (Column type)
+    let search_term = df
         .column("search_term")
         .expect("Failed to find the column 'search_term'");
 
-    // Convert the Series to a Vec<Option<&str>> (or appropriate type based on column data)
-    let list: Vec<Option<&str>> = series
+    // Convert the Series to a Vec<Option<&str>>
+    let list: Vec<Option<&str>> = search_term
         .str()
         .expect("s")
         .into_iter()
         .collect();
 
+    /* 3. Retrieve Matching search_term from MongoDB Uparams */
+    
     print!("{:?}", list);
-
-
-    /*
-    // lf.clone() is important here
-    // Create a list from the DataFrame. This cannot be done with a LazyFrame as the data is only materialized when .collect() is called.
-    let df_revprops = lf_revprops.collect().expect("Failed to collect the LazyFrame into a DataFrame.");
-    let df_revprops = df_revprops.column("search_term"); // select a single column
-    
-    // Use `while let` to loop through the values
-    while let Some(value) = df_revprops.iter().next() {
-        println!("{:?}", value);
-    }
-    */
-    
-
-
-
-    /*
-    1. Use list of search_terms to fitler monogDB query
-    2. inner join filtered uparams to compute
-    */
-
-    // This code is only for printing
-    let lf = lf.select([
-        col("pkey"),
-        col("search_term"),
-        col("absolute_proportion")
-    ]);
-
-    let df = lf.collect().expect("Failed to collect the LazyFrame into a DataFrame.");
     println!("{:?}", df);
-
     return StatusCode::OK
 }
 
