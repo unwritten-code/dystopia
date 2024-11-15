@@ -72,7 +72,6 @@ async fn mongodb_to_polars() -> impl IntoResponse {
     return StatusCode::OK
 }
 
-
 async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
      // Convert JSON to Polars DataFrame
      let df = JsonReader::new(Cursor::new(inputs.to_string()))
