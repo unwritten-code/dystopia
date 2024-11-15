@@ -162,7 +162,7 @@ async fn main() -> ShuttleAxum {
     */
     let router = Router::new()
         .route("/clean_inputs/", post(clean_inputs))
-        // http://127.0.0.1:8000/mongodb_to_polars/
+        /* http://127.0.0.1:8000/mongodb_to_polars/ */
         .route("/mongodb_to_polars/", get(mongodb_to_polars))
     ;
 
