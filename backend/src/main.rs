@@ -91,12 +91,12 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
             .alias("absolute_proportion")
     ]);
 
-    // turn list of countries into a search param for
+    // Filter to use Inner Join with uParams
     let lf = lf.filter(col("metric").eq(lit("revenue_proportion")));
 
     // Create a list from the DataFrame. This cannot be done with a LazyFrame,
     // as the data is only materialized when .collect() is called.
-    // lf.clone() is most important here
+    // lf.clone() is important here
     let cloned_df = lf.clone().collect().expect("Failed to collect the LazyFrame into a DataFrame.");
     // select a single column
     let search_term = cloned_df.column("search_term");
@@ -106,7 +106,13 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
         println!("{:?}", value);
     }
 
-    // Select for printing
+
+    /*
+    1. Use list of search_terms to fitler monogDB query
+    2. inner join filtered uparams to clean_inputs
+    */
+
+    // This code is only for printing
     let lf = lf.select([
         col("pkey"),
         col("search_term"),
@@ -122,15 +128,7 @@ async fn clean_inputs(Json(inputs): Json<Value>) -> impl IntoResponse {
 
 #[shuttle_runtime::main]
 async fn main() -> ShuttleAxum {
-    /*
-    useful query = "SELECT name FROM sqlite_master WHERE type='table'"
-    https://docs.turso.tech/sdk/rust/quickstart#remote-only
-    https://github.com/tursodatabase/libsql/tree/main/libsql/examples
-    https://docs.turso.tech/sdk/rust/guides/axum
-    */
-
-
-    /* Flattened structure
+    /* POST using flattened structure =
     curl http://127.0.0.1:8000/clean_inputs/ \
     -H "Content-Type: application/json" \
     -d '[
@@ -160,9 +158,10 @@ async fn main() -> ShuttleAxum {
     {"pkey":9164,"total_revenue":999,"org":"natasha","three_random_word_id":"actual-goes-yourself","company_name":"Ice Creamapalooza","year":null,"category":"asset","search_term":"Distribution centre","metric":"ownership","value":0,"unit":null,"in_portfolio":false,"external_id":"4120c73c-7d9a-400f-9054-5aeeb3cc81d2","secondary_search_term":"warehouse_storage"}
     ]'
     */
+    /* GET = http://127.0.0.1:8000/mongodb_to_polars/ */
+
     let router = Router::new()
         .route("/clean_inputs/", post(clean_inputs))
-        /* http://127.0.0.1:8000/mongodb_to_polars/ */
         .route("/mongodb_to_polars/", get(mongodb_to_polars))
     ;
 
